@@ -16,3 +16,4 @@ hist(data_train_clean$elapsed_time)
 boxplot(data_train_clean$elapsed_time)
 
 
+ewrtyuiop
