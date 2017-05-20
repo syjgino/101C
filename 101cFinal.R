@@ -15,5 +15,6 @@ data_train_clean <- data_train_clean[data_train_clean$elapsed_time > 0, ]
 hist(data_train_clean$elapsed_time)
 boxplot(data_train_clean$elapsed_time)
 
-
-ewrtyuiop
+#lm
+lm1<-lm(data_train_clean$elapsed_time~data_train_clean$Unit.Type)
+summary(lm1)
