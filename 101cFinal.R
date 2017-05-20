@@ -1,7 +1,7 @@
 library(ggplot2)
 
 #working directory will depend on your computer
-#setwd("C:/school/spring 2017/101C/project")
+setwd("C:/school/spring 2017/101C/project")
 
 #load data
 data_train <- read.csv("lafdtraining.csv")
@@ -13,4 +13,5 @@ data_train_clean <- data_train[data_train_clean$elapsed_time > 0, ]
 #distribution of elapsed_time
 hist(data_train_clean$elapsed_time)
 boxplot(data_train_clean$elapsed_time)
+
 
