@@ -1,4 +1,6 @@
 library(ggplot2)
+library(chron)
+library(dplyr)
 
 #working directory will depend on your computer
 setwd("C:/school/spring 2017/101C/project")
