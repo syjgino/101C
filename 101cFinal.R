@@ -10,7 +10,7 @@ data_train <- na.omit(data_train)
 data_train$Incident.Creation.Time..GMT. <- 24 * as.numeric(times(data_train$Incident.Creation.Time..GMT.))
 
 #add new variable that groups creation times into 4 hour factors
-data_train <- mutate(data_train, time_group = as.factor(floor(data_train$Incident.Creation.Time..GMT./4))) #divide by whatever interval you want
+data_train <- mutate(data_train, time_group = as.factor(floor(data_train$Incident.Creation.Time..GMT./3))) #divide by whatever interval you want
 
 #rename variables
 colnames(data_train) <- c("row", "ID", "year", "district", "emergency_code", "dispatch_seq", "dispatch_type", "unit_type", "PPE_level", "creation_time", "y", "time_group")
