@@ -1,9 +1,8 @@
 library(ggplot2)
 library(chron)
 library(dplyr)
-#working directory will depend on your computer
-#setwd("C:/school/spring 2017/101C/project")
-#setwd("~/Desktop/UCLA/2017Spring/101c/101cFinal")
+
+setwd("C:/school/spring 2017/101C/project")
 
 raw_data <- read.csv("lafdtraining.csv")
 
@@ -70,48 +69,71 @@ testing_data$district <- as.character(testing_data$district)
 testing_data$dispatch_seq <- as.character(testing_data$dispatch_seq)
 testing_data$dispatch_seq <- as.factor(testing_data$dispatch_seq)
 
+row_id <- testing_data$row
+
+testing_data <- testing_data[, -c(1, 5, 10)]
+
+library(car)
+temp_data$newdist=car::recode(temp_data$district, "c(85,38,36,101)='a' ; c(49,40)='b' ;  112='c' ;  79='d' ;  c(95,51,5,63,62)='e'; 67='f' ;  c(43,92,59,37,58)='g'; c(71,19)='h' ;  c(69,23)='i' ;  c(64,65,57,33,66,21,46)='j' ;  c(14,15,13,11,10,3,9,4,26)='k' ;  c(17, 25, 2, 34, 94, 68)='l' ;  c(29, 61,27,52,6,35,20)='m' ;  c(41,82)='n' ; c(56,44,16,50,55,12)='o' ; c(42,47)='p' ; c(76,97,99)='q' ;  c(86,60,78,89,102)='r' ;  c(108)='s'; c(109)='t'; c(74)='u' ; c(24,77)='v' ;  c(88,39,83,81,7,90,100,93,103,70,98)='w' ; c(73,87,75)='x' ;  c(84,105,96)='y' ; c(72,104,107)='z'; c(8,28,18,91)='aa'; else='NA'" )
+
+temp_data$newdist[which(temp_data$newdist=="NA")] <- as.character(temp_data$district[which(temp_data$newdist=="NA")])
+temp_data$newdist<-as.factor(temp_data$newdist)
+
+
 #set seed to your ID
 set.seed(404318564)
 
 #sample
-x <- sample(1:2315060, 500000)
+x <- sample(1:2315060, 1000000)
 
 #create subset
-data_subset <- data_train_1[x, ]
+data_subset <- temp_data[x, ]
+remaining_data <- temp_data[-x,]
 
-m1 <- lm(data = data_subset, y ~ .)
-
-
-#plot creation time vs y
-ggplot()+
-    geom_boxplot(data = data_subset, aes(y,time_group))
-
-#xgb
+#XGBOOST
 library(xgboost)
-xg1 = xgboost(data = data.matrix(data_subset[,c(1,2,3,4,5,6,7,9)]), label = data.matrix(data_subset[,8]), nrounds = 100, verbose = 1, early_stopping_rounds = 20, eta = .1, print_every_n=20)
+xg1 <- xgboost(data = data.matrix(data_subset[,c(1,2,3,4,5,6,7,9)]), label = data.matrix(data_subset[,8]), nrounds = 500, verbose = 1, early_stopping_rounds = 20, eta = 0.1, print_every_n=20, max_depth = 7, eval_metric = "rmse")
 
-#prediction
-#clean test data
-data_test_clean=na.omit(data_test)
+#ignore district, instead use grouping of districts
+data_subset$dispatch_seq <- as.character(data_subset$dispatch_seq)
+xg2 <- xgboost(data = data.matrix(data_subset[,c(1,2,4,5,6,7,9,10)]), label = data.matrix(data_subset[,8]), nrounds = 500, verbose = 1, early_stopping_rounds = 20, eta = 0.1, print_every_n=20, max_depth = 7, eval_metric = "rmse")
 
-#change creation time to hours since midnight
-data_test_clean$Incident.Creation.Time..GMT. <- 24 * as.numeric(times(data_test_clean$Incident.Creation.Time..GMT.))
+#use both districts and groups
+xg3 <- xgboost(data = data.matrix(data_subset[,c(1,2,3,4,5,6,7,9,10)]), label = data.matrix(data_subset[,8]), nrounds = 500, verbose = 1, early_stopping_rounds = 20, eta = 0.1, print_every_n=20, max_depth = 7, eval_metric = "rmse")
 
-#add new variable that groups creation times into 4 hour factors
-data_test_clean <- mutate(data_test_clean, time_group = as.factor(floor(data_test_clean$Incident.Creation.Time..GMT./1))) #divide by whatever interval you want
 
-#rename variables
-colnames(data_test_clean) <- c("row", "ID", "year", "district", "emergency_code", "dispatch_seq", "dispatch_type", "unit_type", "PPE_level", "creation_time", "time_group")
+cv_pred1 <- predict(xg1, newdata = data.matrix(remaining_data))
+cv_pred2 <- predict(xg2, newdata = data.matrix(remaining_data))
+cv_pred3 <- predict(xg3, newdata = data.matrix(remaining_data))
 
-#change year, district, dispatch_seq to factor
-data_test_clean$dispatch_seq <- as.character(data_test_clean$dispatch_seq)
+mse_cv1 <- mean((remaining_data$y - cv_pred1)^2)
+mse_cv2 <- mean((remaining_data$y - cv_pred2)^2)
+mse_cv3 <- mean((remaining_data$y - cv_pred3)^2)
 
-data_test_clean$district <- as.character(data_test_clean$district)
 
-data_test_clean$year <- as.character(data_test_clean$year)
+a <- c(20000, 30000, 40000, 50000, 60000)
+b <- seq(1.05, 2, 0.05)
+c <- c()
 
-#delete row, ID, emergency_code, creation_time
-data_test_1 <- data_test_clean[, -c(1,2,5)]
+for(i in 1:length(a)){
+  for(j in 1:length(b)){
+    inf <- cv_pred1
+    inf[which(inf>a[1])] <- b[1] * inf[which(inf>a[1])]
+    mse <- mean((remaining_data$y - inf)^2)
+    c <- c(c,mse)
+  }
+}
 
-#
-preds.xgb.test = predict(xg1, newdata = data.matrix(data_test_1))
+min(c)
+
+mse_inflate
+mse_cv1
+mse_cv2
+mse_cv3
+
+predictions <- predict(xg2, newdata = data.matrix(testing_data))
+
+submission <- data.frame(row_id, predictions)
+names(submission) <- c("row.id", "prediction")
+
+write.csv(submission, file = "submission.csv", row.names = F)
